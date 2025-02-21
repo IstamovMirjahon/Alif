@@ -1,12 +1,9 @@
-﻿using Microsoft.AspNet.Identity.EntityFramework;
-using System.Xml.Linq;
+﻿using Microsoft.AspNetCore.Identity;
 
 namespace LearnLab.Identity.Models
 {
     public class Role : IdentityRole
     {
-        public Role() { }
-
         public Role(string roleName, string description)
         {
             Name = roleName;

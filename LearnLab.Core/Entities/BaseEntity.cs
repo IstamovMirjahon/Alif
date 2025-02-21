@@ -2,7 +2,7 @@
 
 namespace LearnLab.Core.Entities
 {
-    class BaseEntity : IHasisDeletedProporty
+    public class BaseEntity : IHasisDeletedProporty
     {
         public Guid Id { get; set; }
         [AllowNull]
