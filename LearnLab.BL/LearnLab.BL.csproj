@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\LearnLab.Core\LearnLab.Core.csproj" />
+    <ProjectReference Include="..\LearnLab.Infrastructure\LearnLab.Infrastructure.csproj" />
+    <ProjectReference Include="..\LearnLab.Persistence\LearnLab.Persistence.csproj" />
+  </ItemGroup>
+
 </Project>
