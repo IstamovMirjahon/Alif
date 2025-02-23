@@ -21,6 +21,10 @@ namespace LearnLab.API.Controllers
         [Route("login")]
         public async Task<ActionResult<LoginResponseDto>> LoginAsync([FromBody] LoginDto loginDto)
         {
+            if (loginDto == null)
+            {
+                return BadRequest("LoginDto can not be null.");
+            }
             return Ok(await _authService.Login(loginDto));
         }
 
