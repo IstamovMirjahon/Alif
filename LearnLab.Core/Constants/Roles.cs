@@ -2,9 +2,9 @@
 
 public static class RoleNames
 {
-    public const string Customer = "Customer";
-    public const string Seller = "Seller";
+    public const string Student = "Student";
+    public const string Teacher = "Teacher";
     public const string SuperAdmin = "SuperAdmin";
-    public const string NewUser = "NewUser";
+    public const string Guest = "Guest";
     public const string Supervisor = "Supervisor";
 }

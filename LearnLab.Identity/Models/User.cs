@@ -21,13 +21,14 @@ namespace LearnLab.Identity.Models
             IsDeleted = false;
         }
 
-        public User(string firstName, string lastName, string phoneNumber, GenderEnum gender, DateTime birthDate)
+        public User(string firstName, string lastName, string phoneNumber,string email,  GenderEnum gender, DateTime birthDate)
         {
             FirstName = firstName;
             LastName = lastName;
             UserName = phoneNumber;
             PhoneNumber = phoneNumber;
             Gender = gender;
+            Email = email;
             BirthDate = birthDate;
             CreatedAt = DateTime.Now;
             IsDeleted = false;

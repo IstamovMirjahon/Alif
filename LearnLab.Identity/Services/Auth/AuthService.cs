@@ -101,7 +101,7 @@ public class AuthService : IAuthService
         if (!result.Succeeded)
             throw new LearnLabException("Didn't Succeed.");
 
-        var roles = new List<string> { RoleNames.NewUser, signUpDto.Role };
+        var roles = new List<string> { RoleNames.Guest, signUpDto.Role };
 
         await _userManager.AddToRolesAsync(newUser, roles.ToArray());
 
