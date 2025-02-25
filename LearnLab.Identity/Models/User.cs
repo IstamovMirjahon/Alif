@@ -7,10 +7,13 @@ namespace LearnLab.Identity.Models
     {
         public string FirstName { get; set; }
         public string LastName { get; set; }
+        public string? Email { get; set; }
+        public string? PhoneNumber { get; set; }
         public GenderEnum Gender { get; set; } = GenderEnum.Unknown;
-        public DateTime BirthDate { get; set; }
+        public DateTime? BirthDate { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsDeleted { get; set; }
+        public string PasswordHash { get; set; }
         public User(string firstName, string lastName, string phoneNumber)
         {
             FirstName = firstName;

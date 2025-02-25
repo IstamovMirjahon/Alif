@@ -17,6 +17,8 @@ namespace LearnLab.Identity
        base.OnModelCreating(modelBuilder);
 
         public DbSet<SmsToken> SmsTokens { get; set; }
+        public DbSet<EmailToken> EmailTokens { get; set; }
+
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

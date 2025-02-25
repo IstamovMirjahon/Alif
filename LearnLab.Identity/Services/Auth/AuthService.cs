@@ -3,9 +3,11 @@ using LearnLab.Core.Constants;
 using LearnLab.Core.DTOs.Auth;
 using LearnLab.Core.Exceptions;
 using LearnLab.Identity.Constants;
+using LearnLab.Identity.Email;
 using LearnLab.Identity.Models;
 using LearnLab.Identity.SMS;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using PetShop.Core.AccesConfigurations;
@@ -15,13 +17,13 @@ using System.Text;
 
 namespace LearnLab.Identity.Services.Auth;
 
-
 public class AuthService : IAuthService
 {
     private IOptions<AccessConfiguration> _siteSettings;
     private readonly UserManager<User> _userManager;
     private readonly LearnLabIdentityDbContext _context;
     private readonly ISmsSender _smsSender;
+    private readonly IEmailSender _emailSender;
 
     public AuthService(
                 IOptions<AccessConfiguration> siteSettings,
@@ -37,78 +39,116 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponseDto> Login(LoginDto loginDto)
     {
-        var user = await _userManager.FindByNameAsync(loginDto.PhoneNumber) ??
-            throw new LearnLabException("Not Found");
+        User? user = null;
+
+        if (loginDto.IsPhoneNumber())
+        {
+            user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == loginDto.EmailOrPhone);
+        }
+        else if (loginDto.IsEmail())
+        {
+            user = await _userManager.FindByEmailAsync(loginDto.EmailOrPhone);
+        }
+
+        if (user == null)
+            throw new LearnLabException("Foydalanuvchi topilmadi.");
 
         if (!await _userManager.CheckPasswordAsync(user, loginDto.Password))
-            throw new LearnLabException("Your Password is incorrect.");
+            throw new LearnLabException("Noto‘g‘ri parol.");
 
         if (!user.PhoneNumberConfirmed)
         {
             await _smsSender.SendSmsOtpAsync(user.PhoneNumber);
-            throw new LearnLabException($"Please verify your phone number. {user.PhoneNumber}");
+            throw new LearnLabException($"Iltimos, telefon raqamingizni tasdiqlang: {user.PhoneNumber}");
         }
 
         var roles = await _userManager.GetRolesAsync(user);
+        var authClaims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        new Claim(ClaimNames.FirstName, user.FirstName),
+        new Claim(ClaimNames.LastName, user.LastName)
+    };
 
-        var authClaims = new List<Claim>()
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, user.PhoneNumber),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(ClaimNames.UserId, Convert.ToString(user.Id)),
-            new Claim(ClaimNames.FirstName, user.FirstName),
-            new Claim(ClaimNames.LastName, user.LastName)
-        };
-
-        var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey.TheSecretKey));
-
-        // add roels to claims
         foreach (var role in roles)
         {
-            var roleClaim = new Claim(ClaimTypes.Role, role);
-            authClaims.Add(roleClaim);
+            authClaims.Add(new Claim(ClaimTypes.Role, role));
         }
 
+        var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey.TheSecretKey));
         var jwtSecurityToken = new JwtSecurityToken(
             issuer: _siteSettings.Value.Issuer,
             audience: _siteSettings.Value.Audience,
-            expires: DateTime.Now.AddDays(10),
+            expires: DateTime.UtcNow.AddDays(10),
             claims: authClaims,
-            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256));
+            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+        );
 
         var token = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
 
         return new LoginResponseDto(
-                        Guid.Parse(user.Id), token, jwtSecurityToken.ValidTo,
-                        user.FirstName, user.LastName, user.Gender,
-                        user.BirthDate, user.PhoneNumber, roles);
+            Guid.Parse(user.Id),
+            token,
+            jwtSecurityToken.ValidTo,
+            user.FirstName,
+            user.LastName,
+            user.Gender,
+            user.BirthDate,
+            user.PhoneNumber,
+            roles,
+            user.Email
+        );
     }
 
     public async Task<SignUpResponseDto> Register(SignUpDto signUpDto)
     {
-        var user = await _userManager.FindByNameAsync(signUpDto.PhoneNumber);
+        User? existingUser = null;
 
-        if (user != null && user.PhoneNumberConfirmed == true)
-            throw new LearnLabException("This user already created. You can Login to your account.");
+        if (!string.IsNullOrEmpty(signUpDto.Email))
+        {
+            existingUser = await _userManager.FindByEmailAsync(signUpDto.Email);
+        }
+        else if (!string.IsNullOrEmpty(signUpDto.PhoneNumber))
+        {
+            existingUser = await _userManager.FindByNameAsync(signUpDto.PhoneNumber);
+        }
 
-        if (user != null && user.PhoneNumberConfirmed == false)
-            await _userManager.DeleteAsync(user);
+        if (existingUser != null && existingUser.PhoneNumberConfirmed)
+            throw new LearnLabException("This user already exists. You can login to your account.");
 
-        var newUser = new User(signUpDto.FirstName, signUpDto.LastName, signUpDto.PhoneNumber);
+        if (existingUser != null && !existingUser.PhoneNumberConfirmed)
+            await _userManager.DeleteAsync(existingUser);
+
+        var newUser = new User(
+            signUpDto.FirstName,
+            signUpDto.LastName,
+            signUpDto.PhoneNumber,
+            signUpDto.Email,
+            signUpDto.Gender,
+            DateTime.MinValue
+        );
 
         var result = await _userManager.CreateAsync(newUser, signUpDto.Password);
 
         if (!result.Succeeded)
-            throw new LearnLabException("Didn't Succeed.");
+            throw new LearnLabException("User registration failed.");
 
         var roles = new List<string> { RoleNames.Guest, signUpDto.Role };
-
         await _userManager.AddToRolesAsync(newUser, roles.ToArray());
 
-        await _smsSender.SendSmsOtpAsync(signUpDto.PhoneNumber);
+        if (!string.IsNullOrEmpty(signUpDto.PhoneNumber))
+        {
+            await _smsSender.SendSmsOtpAsync(signUpDto.PhoneNumber);
+        }
+        else if (!string.IsNullOrEmpty(signUpDto.Email))
+        {
+            await _emailSender.SendEmailOtpAsync(signUpDto.Email);
+        }
 
         return new SignUpResponseDto(Guid.Parse(newUser.Id), newUser.PhoneNumber, newUser.FirstName, newUser.LastName, roles);
     }
+
 
     public async Task<bool> VerifyPhoneNumber(string phoneNumber, string user_code)
     {
