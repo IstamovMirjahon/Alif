@@ -14,7 +14,7 @@ namespace LearnLab.Identity
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) =>
-       base.OnModelCreating(modelBuilder);
+        base.OnModelCreating(modelBuilder);
 
         public DbSet<SmsToken> SmsTokens { get; set; }
         public DbSet<EmailToken> EmailTokens { get; set; }

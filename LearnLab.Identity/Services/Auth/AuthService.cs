@@ -6,6 +6,7 @@ using LearnLab.Identity.Constants;
 using LearnLab.Identity.Email;
 using LearnLab.Identity.Models;
 using LearnLab.Identity.SMS;
+using Microsoft.AspNet.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,21 +21,23 @@ namespace LearnLab.Identity.Services.Auth;
 public class AuthService : IAuthService
 {
     private IOptions<AccessConfiguration> _siteSettings;
-    private readonly UserManager<User> _userManager;
+    private readonly Microsoft.AspNetCore.Identity.UserManager<User> _userManager;
     private readonly LearnLabIdentityDbContext _context;
     private readonly ISmsSender _smsSender;
     private readonly IEmailSender _emailSender;
 
     public AuthService(
                 IOptions<AccessConfiguration> siteSettings,
-                UserManager<User> userManager,
+                Microsoft.AspNetCore.Identity.UserManager<User> userManager,
                 LearnLabIdentityDbContext context,
-                ISmsSender smsSender)
+                ISmsSender smsSender,
+                IEmailSender emailSender)
     {   
         _siteSettings = siteSettings;
         _userManager = userManager;
         _context = context;
         _smsSender = smsSender;
+        _emailSender = emailSender;
     }
 
     public async Task<LoginResponseDto> Login(LoginDto loginDto)
@@ -47,7 +50,7 @@ public class AuthService : IAuthService
         }
         else if (loginDto.IsEmail())
         {
-            user = await _userManager.FindByEmailAsync(loginDto.EmailOrPhone);
+            user = await _userManager.Users.FirstOrDefaultAsync(u => u.Email == loginDto.EmailOrPhone);
         }
 
         if (user == null)
@@ -103,22 +106,10 @@ public class AuthService : IAuthService
 
     public async Task<SignUpResponseDto> Register(SignUpDto signUpDto)
     {
-        User? existingUser = null;
-
-        if (!string.IsNullOrEmpty(signUpDto.Email))
-        {
-            existingUser = await _userManager.FindByEmailAsync(signUpDto.Email);
-        }
-        else if (!string.IsNullOrEmpty(signUpDto.PhoneNumber))
-        {
-            existingUser = await _userManager.FindByNameAsync(signUpDto.PhoneNumber);
-        }
-
-        if (existingUser != null && existingUser.PhoneNumberConfirmed)
+        User? existingUser = await _userManager.FindByNameAsync(signUpDto.Email ?? signUpDto.PhoneNumber);
+        if (existingUser != null)
             throw new LearnLabException("This user already exists. You can login to your account.");
-
-        if (existingUser != null && !existingUser.PhoneNumberConfirmed)
-            await _userManager.DeleteAsync(existingUser);
+        var passwordHasher = new PasswordHasher<User>();
 
         var newUser = new User(
             signUpDto.FirstName,
@@ -126,28 +117,45 @@ public class AuthService : IAuthService
             signUpDto.PhoneNumber,
             signUpDto.Email,
             signUpDto.Gender,
-            DateTime.MinValue
-        );
+            DateTime.UtcNow
+        )
+        {
+            UserName = signUpDto.Email ?? signUpDto.PhoneNumber ?? Guid.NewGuid().ToString(),
+            EmailConfirmed = !string.IsNullOrEmpty(signUpDto.Email),
+            PhoneNumberConfirmed = !string.IsNullOrEmpty(signUpDto.PhoneNumber)
+        };
+        newUser.PasswordHash = passwordHasher.HashPassword(newUser, signUpDto.Password);
 
+        // Foydalanuvchini yaratish
         var result = await _userManager.CreateAsync(newUser, signUpDto.Password);
-
         if (!result.Succeeded)
-            throw new LearnLabException("User registration failed.");
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new LearnLabException($"User registration failed: {errors}");
+        }
 
-        var roles = new List<string> { RoleNames.Guest, signUpDto.Role };
-        await _userManager.AddToRolesAsync(newUser, roles.ToArray());
+        // Role qo‘shish
+        var roles = new List<string> { RoleNames.Guest };
+        if (!string.IsNullOrEmpty(signUpDto.Role))
+            roles.Add(signUpDto.Role);
 
+        var roleResult = await _userManager.AddToRolesAsync(newUser, roles.ToArray());
+        if (!roleResult.Succeeded)
+        {
+            var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+            throw new LearnLabException($"Failed to assign roles: {errors}");
+        }
+
+        // OTP yuborish faqat foydalanuvchi va role muvaffaqiyatli yaratilgan bo‘lsa
         if (!string.IsNullOrEmpty(signUpDto.PhoneNumber))
-        {
             await _smsSender.SendSmsOtpAsync(signUpDto.PhoneNumber);
-        }
         else if (!string.IsNullOrEmpty(signUpDto.Email))
-        {
             await _emailSender.SendEmailOtpAsync(signUpDto.Email);
-        }
 
         return new SignUpResponseDto(Guid.Parse(newUser.Id), newUser.PhoneNumber, newUser.FirstName, newUser.LastName, roles);
     }
+
+
 
 
     public async Task<bool> VerifyPhoneNumber(string phoneNumber, string user_code)

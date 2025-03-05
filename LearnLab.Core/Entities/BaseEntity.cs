@@ -6,11 +6,11 @@ namespace LearnLab.Core.Entities
     {
         public Guid Id { get; set; }
         [AllowNull]
-        public DateTime CreateDate { get; set; } = DateTime.Now;
+        public DateTimeOffset CreateDate { get; set; } = DateTimeOffset.Now;
         [AllowNull]
-        public DateTime UpdateDate { get; set; }
+        public DateTimeOffset UpdateDate { get; set; }
         [AllowNull]
-        public DateTime DeleteDate { get; set; }
+        public DateTimeOffset DeleteDate { get; set; }
 
     }
 }

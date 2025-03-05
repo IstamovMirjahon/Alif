@@ -11,7 +11,7 @@ namespace LearnLab.Identity.Models
         public string? PhoneNumber { get; set; }
         public GenderEnum Gender { get; set; } = GenderEnum.Unknown;
         public DateTime? BirthDate { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
         public bool IsDeleted { get; set; }
         public string PasswordHash { get; set; }
         public User(string firstName, string lastName, string phoneNumber)
@@ -20,7 +20,7 @@ namespace LearnLab.Identity.Models
             LastName = lastName;
             UserName = phoneNumber;
             PhoneNumber = phoneNumber;
-            CreatedAt = DateTime.Now;
+            CreatedAt = DateTimeOffset.Now;
             IsDeleted = false;
         }
 
@@ -28,12 +28,12 @@ namespace LearnLab.Identity.Models
         {
             FirstName = firstName;
             LastName = lastName;
-            UserName = phoneNumber;
+            UserName = phoneNumber??email;
             PhoneNumber = phoneNumber;
             Gender = gender;
             Email = email;
             BirthDate = birthDate;
-            CreatedAt = DateTime.Now;
+            CreatedAt = DateTimeOffset.Now;
             IsDeleted = false;
         }
     }

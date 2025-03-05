@@ -30,7 +30,7 @@ public class EmailSender : IEmailSender
         await _context.EmailTokens.AddAsync(new EmailToken(code, email));
         await _context.SaveChangesAsync();
 
-        var verificationMessage = $"Assalomu alaykum. UzWorks platformasi uchun tasdiqlash kodi: {code}";
+        var verificationMessage = $"Assalomu alaykum. LearnLab platformasi uchun tasdiqlash kodi: {code}";
 
         try
         {

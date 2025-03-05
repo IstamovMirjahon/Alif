@@ -29,7 +29,7 @@ public class SmsSender : ISmsSender
         await _context.SmsTokens.AddAsync(new SmsToken(code, phoneNumber));
         await _context.SaveChangesAsync();
 
-        var verfication_message = $"Assalomu aleykum. UzWorks platformasi uchun tasdiqlash kodi: {code}";
+        var verfication_message = $"Assalomu aleykum. LearnLab platformasi uchun tasdiqlash kodi: {code}";
         
         var response = await SendSmsAsync(phoneNumber, verfication_message);
         
