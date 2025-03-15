@@ -6,7 +6,6 @@ using LearnLab.Identity.Constants;
 using LearnLab.Identity.Email;
 using LearnLab.Identity.Models;
 using LearnLab.Identity.SMS;
-using Microsoft.AspNet.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -21,14 +20,14 @@ namespace LearnLab.Identity.Services.Auth;
 public class AuthService : IAuthService
 {
     private IOptions<AccessConfiguration> _siteSettings;
-    private readonly Microsoft.AspNetCore.Identity.UserManager<User> _userManager;
+    private readonly UserManager<User> _userManager;
     private readonly LearnLabIdentityDbContext _context;
     private readonly ISmsSender _smsSender;
     private readonly IEmailSender _emailSender;
 
     public AuthService(
                 IOptions<AccessConfiguration> siteSettings,
-                Microsoft.AspNetCore.Identity.UserManager<User> userManager,
+                UserManager<User> userManager,
                 LearnLabIdentityDbContext context,
                 ISmsSender smsSender,
                 IEmailSender emailSender)
@@ -44,11 +43,11 @@ public class AuthService : IAuthService
     {
         User? user = null;
 
-        if (loginDto.IsPhoneNumber())
+        if (CheckNumberOrEmail.IsPhoneNumber(loginDto.EmailOrPhone))
         {
             user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == loginDto.EmailOrPhone);
         }
-        else if (loginDto.IsEmail())
+        else if (CheckNumberOrEmail.IsPhoneNumber(loginDto.EmailOrPhone))
         {
             user = await _userManager.Users.FirstOrDefaultAsync(u => u.Email == loginDto.EmailOrPhone);
         }
@@ -124,9 +123,7 @@ public class AuthService : IAuthService
             EmailConfirmed = !string.IsNullOrEmpty(signUpDto.Email),
             PhoneNumberConfirmed = !string.IsNullOrEmpty(signUpDto.PhoneNumber)
         };
-        newUser.PasswordHash = passwordHasher.HashPassword(newUser, signUpDto.Password);
 
-        // Foydalanuvchini yaratish
         var result = await _userManager.CreateAsync(newUser, signUpDto.Password);
         if (!result.Succeeded)
         {
@@ -134,7 +131,6 @@ public class AuthService : IAuthService
             throw new LearnLabException($"User registration failed: {errors}");
         }
 
-        // Role qo‘shish
         var roles = new List<string> { RoleNames.Guest };
         if (!string.IsNullOrEmpty(signUpDto.Role))
             roles.Add(signUpDto.Role);
@@ -146,7 +142,6 @@ public class AuthService : IAuthService
             throw new LearnLabException($"Failed to assign roles: {errors}");
         }
 
-        // OTP yuborish faqat foydalanuvchi va role muvaffaqiyatli yaratilgan bo‘lsa
         if (!string.IsNullOrEmpty(signUpDto.PhoneNumber))
             await _smsSender.SendSmsOtpAsync(signUpDto.PhoneNumber);
         else if (!string.IsNullOrEmpty(signUpDto.Email))
@@ -154,9 +149,6 @@ public class AuthService : IAuthService
 
         return new SignUpResponseDto(Guid.Parse(newUser.Id), newUser.PhoneNumber, newUser.FirstName, newUser.LastName, roles);
     }
-
-
-
 
     public async Task<bool> VerifyPhoneNumber(string phoneNumber, string user_code)
     {
@@ -175,6 +167,18 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<bool> VerifyEmail(string email, string user_code)
+    {
+        var user = await _userManager.FindByEmailAsync(email) ??
+            throw new LearnLabException("User not found.");
+        var code = _context.EmailTokens.Where(x => x.Email == email).FirstOrDefault()?.EmailCode ??
+            throw new LearnLabException("Code not found.");
+        if (code != user_code)
+            throw new LearnLabException("Code is incorrect.");
+        user.EmailConfirmed = true;
+        await _userManager.UpdateAsync(user);
+        return true;
+    }
     public async Task<bool> ForgetPassword(string phoneNumber)
     {
         var user = await _userManager.FindByNameAsync(phoneNumber) ??
@@ -182,6 +186,14 @@ public class AuthService : IAuthService
 
         await _smsSender.SendSmsOtpAsync(user.PhoneNumber);
 
+        return true;
+    }
+
+    public async Task<bool> ForgetPasswordByEmail(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email) ??
+            throw new LearnLabException("User not found.");
+        await _emailSender.SendEmailOtpAsync(user.Email);
         return true;
     }
 
@@ -196,6 +208,19 @@ public class AuthService : IAuthService
         if (smsToken.SmsCode != code)
             throw new LearnLabException("Code is incorrect.");
 
+        await _userManager.RemovePasswordAsync(user);
+        await _userManager.AddPasswordAsync(user, newPassword);
+
+        return true;
+    }
+    public async Task<bool> ResetEmail(string email , string newPassword, string code)
+    {
+        var user= await _userManager.FindByEmailAsync(email)??
+                        throw new LearnLabException("User not found.");
+        var emailToken = _context.EmailTokens.Where(x=>x.Email == email).FirstOrDefault() ??
+                        throw new LearnLabException("Code not found.");
+        if(emailToken.EmailCode != code)  throw new LearnLabException("Code is incorrect.");
+        
         await _userManager.RemovePasswordAsync(user);
         await _userManager.AddPasswordAsync(user, newPassword);
 

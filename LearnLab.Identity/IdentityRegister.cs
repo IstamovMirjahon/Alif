@@ -1,4 +1,5 @@
-﻿using LearnLab.Identity.ClaimsPrincipalFactory;
+﻿using LearnLab.Core.Entities.Email;
+using LearnLab.Identity.ClaimsPrincipalFactory;
 using LearnLab.Identity.Email;
 using LearnLab.Identity.Models;
 using LearnLab.Identity.Services.Auth;
@@ -71,6 +72,7 @@ namespace LearnLab.Identity
             services.AddSingleton<EskizTokenHandler>();
 
             services.AddOptions<SmsClientOptions>().Bind(configuration.GetSection(SmsClientOptions.SmsSectionName));
+            services.AddOptions<EmailClientOptions>().Bind(configuration.GetSection(EmailClientOptions.SmsSectionName));
 
             using var provider = services.BuildServiceProvider();
 

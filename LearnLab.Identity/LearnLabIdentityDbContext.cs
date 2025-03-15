@@ -2,6 +2,7 @@
 using LearnLab.Identity.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace LearnLab.Identity
 {
@@ -10,7 +11,6 @@ namespace LearnLab.Identity
         public LearnLabIdentityDbContext(DbContextOptions<LearnLabIdentityDbContext> options) : base(options)
         {
             AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-            Database.Migrate();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) =>
@@ -22,6 +22,7 @@ namespace LearnLab.Identity
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+            optionsBuilder.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
         }
     }
 }

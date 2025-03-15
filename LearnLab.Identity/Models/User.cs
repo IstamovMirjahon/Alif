@@ -13,7 +13,6 @@ namespace LearnLab.Identity.Models
         public DateTime? BirthDate { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public bool IsDeleted { get; set; }
-        public string PasswordHash { get; set; }
         public User(string firstName, string lastName, string phoneNumber)
         {
             FirstName = firstName;

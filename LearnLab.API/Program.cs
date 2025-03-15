@@ -5,6 +5,7 @@ using LearnLab.Core.AccesConfigurations;
 using LearnLab.Identity;
 using LearnLab.Identity.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
 namespace LearnLab.API
@@ -17,6 +18,8 @@ namespace LearnLab.API
             builder.WebHost.UseKestrel();
 
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            builder.Services.AddDbContext<LearnLabIdentityDbContext>(options =>
+           options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Add services to the container.
             builder.Services.AddOptions();
@@ -57,8 +60,7 @@ namespace LearnLab.API
 
             builder.Services.AddScoped<IEnvironmentAccessor, EnvironmentAccessor>();
             builder.Services.RegisterIdentityServices(builder.Configuration);
-
-
+           
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -67,7 +69,7 @@ namespace LearnLab.API
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
+            
             app.UseHttpsRedirection();
 
             app.UseAuthorization();

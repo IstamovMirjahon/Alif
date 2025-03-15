@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
-namespace  LearnLab.Core.DTOs.Auth;
+namespace LearnLab.Core.DTOs.Auth;
 
 public class LoginDto
 {
@@ -18,14 +18,5 @@ public class LoginDto
     [MaxLength(20, ErrorMessage = "Parol eng ko‘pi bilan 20 ta belgidan iborat bo‘lishi kerak.")]
     public string Password { get; set; } = string.Empty;
 
-    public bool IsPhoneNumber()
-    {
-        return Regex.IsMatch(EmailOrPhone, "^998\\d{9}$");
-    }
-
-    public bool IsEmail()
-    {
-        return new EmailAddressAttribute().IsValid(EmailOrPhone);
-    }
 }
 
